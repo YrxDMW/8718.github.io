@@ -1,48 +1,203 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>共致富💗奔小康</title>
-    <link href="static/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
+<html>
+    <head>
+        <meta charset='UTF-8'>
+        <title>heart for why</title>
+        <meta name='Author' content='yrx' />
+        <style>
+            html, body {
+                height: 100%;
+                padding: 0;
+                margin: 0;
+                background: #000000;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id='canvas'></canvas>
+        <script>
+            const clWidth = document.documentElement.clientWidth
+            const clHeight = document.documentElement.clientHeight
+            const HEART_COLOR = '#FF69B4' // 颜色
+            const ENLARGE = 6 // 放大倍数
+            const RADIAN_INC = Math.PI / 80 // 增量
+            const DEVIATION_W = clWidth / 2
+            const DEVIATION_H = clHeight / 2
+            //  画布设置
+            let canvasEl = document.getElementById('canvas')
+            let ctx = canvasEl.getContext('2d')
+            canvasEl.width = clWidth
+            canvasEl.height = clHeight
 
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <a class="navbar-brand" href="#">导航</a>
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav">
-            <li class="nav-item active">
-                <a class="nav-link" href="#">A <span class="sr-only">(current)</span></a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">B </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">C </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">D </a>
-            </li>
-        </ul>
-    </div>
-</nav>
+            let renderFrame = 0
+            ctx.strokeStyle = HEART_COLOR
 
-<div class="container mt-5">
-    <div class="jumbotron">
-        <h1 class="display-4">YXZ NB!</h1>
-        <p class="lead">领导你好👋.</p>
-        <hr class="my-4">
-        <p>❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️</p>
-        <a class="btn btn-primary btn-lg" href="#" role="button">无效大按钮</a>
-    </div>
-</div>
+            function getHeart(t, shrinkRatio = ENLARGE) {
+              let x = 16 * Math.pow(Math.sin(t), 3);
+              let y = -(
+                13 * Math.cos(t) -
+                5 * Math.cos(2 * t) -
+                2 * Math.cos(3 * t) -
+                Math.cos(4 * t)
+              );
 
-<script src="static/jquery-3.5.1.min.js"></script>
-<script src="static/popper.min.js"></script>
-<script src="static/bootstrap.min.js"></script>
-</body>
+              x *= shrinkRatio;
+              y *= shrinkRatio;
+
+              x += DEVIATION_W;
+              y += DEVIATION_H;
+              return [x, y];
+            }
+
+            function scatterInside(x, y, beta = 0.15) {
+              let ratioX = -beta * Math.log(Math.random());
+              let ratioY = -beta * Math.log(Math.random());
+              let dx = ratioX * (x - DEVIATION_W);
+              let dy = ratioY * (y - DEVIATION_H);
+
+              return [x - dx, y - dy];
+            }
+
+            function shrink(x, y, ratio) {
+              const force =
+                -1 / ((x - DEVIATION_W) ** 2 + (y - DEVIATION_H) ** 2) ** 0.6;
+              const dx = ratio * force * (x - DEVIATION_W);
+              const dy = ratio * force * (y - DEVIATION_H);
+              return [x - dx, y - dy];
+            }
+
+            function curve(p) {
+              return (2 * (2 * Math.sin(4 * p))) / (2 * Math.PI);
+            }
+
+            function getRandom(arr) {
+              const index = Math.floor(Math.random() * arr.length);
+              return arr[index];
+            }
+
+            function getRandi(min, max) {
+              max++;
+              return Math.floor(Math.random() * (+max - +min)) + +min;
+            }
+
+            function canvasRect(canvasData) {
+              const [x, y, size] = canvasData;
+              ctx.fillStyle = HEART_COLOR;
+              ctx.beginPath();
+              ctx.rect(x, y, size, size);
+              ctx.stroke();
+            }
+
+            class Heart {
+              constructor(generateFrame = 24) {
+                this.points = [];
+                this.edgePoints = [];
+                this.centerPoints = [];
+                this.allPoints = {};
+                this.build(2000);
+                this.generateFrame = generateFrame;
+                for (let i = 0; i < generateFrame; i++) {
+                  this.calc(i);
+                }
+              }
+
+              calcPosition(x, y, ratio) {
+                const force =
+                  1 / ((x - DEVIATION_W) ** 2 + (y - DEVIATION_H) ** 2) ** 0.52;
+                const dx = ratio * force * (x - DEVIATION_W) + getRandi(-1, 1);
+                const dy = ratio * force * (y - DEVIATION_H) + getRandi(-1, 1);
+                return [x - dx, y - dy];
+              }
+
+              calc(generateFrame) {
+                const ratio = 10 * curve((generateFrame / 10) * Math.PI);
+                const haloRadius = Number(
+                  4 + 6 * (1 + curve((generateFrame / 10) * Math.PI))
+                );
+                const haloNumber = Number(
+                  1000 + 2000 * Math.abs(curve((generateFrame / 10) * Math.PI) ** 2)
+                );
+
+                const allPoints = [];
+                const heartHaloPoint = new Set();
+                for (let i = 0; i < haloNumber; i++) {
+                  let [_x, _y] = getHeart(Math.random() * 4 * Math.PI, 11.5);
+                  let [x, y] = shrink(_x, _y, haloRadius);
+                  if (!heartHaloPoint.has([x, y])) {
+                    heartHaloPoint.add([x, y]);
+                    x += getRandi(-14, 14);
+                    y += getRandi(-14, 14);
+                    const size = getRandom([1, 2, 2]);
+                    allPoints.push([x, y, size]);
+                  }
+                }
+
+                // 轮廓
+                for (let i = 0; i < this.points.length; i++) {
+                  const [_x, _y] = this.points[i];
+                  const [x, y] = this.calcPosition(_x, _y, ratio);
+                  const size = getRandi(1, 3);
+                  allPoints.push([x, y, size]);
+                }
+
+                // 外围
+                for (let i = 0; i < this.edgePoints.length; i++) {
+                  const [_x, _y] = this.edgePoints[i];
+                  const [x, y] = this.calcPosition(_x, _y, ratio);
+                  const size = getRandi(1, 2);
+                  allPoints.push([x, y, size]);
+                }
+
+                // 内部
+                for (let i = 0; i < this.centerPoints.length; i++) {
+                  const [_x, _y] = this.centerPoints[i];
+                  const [x, y] = this.calcPosition(_x, _y, ratio);
+                  const size = getRandi(1, 2);
+                  allPoints.push([x, y, size]);
+                }
+
+                this.allPoints[generateFrame] = allPoints;
+              }
+
+              build(quantity) {
+                // 构成爱心实体
+                for (let i = 0; i < quantity; i++) {
+                  const [x, y] = getHeart(Math.random() * 2 * Math.PI);
+                  this.points.push([x, y]);
+                }
+
+                for (let i = 0; i < this.points.length; i++) {
+                  const [x, y] = this.points[i];
+                  for (let j = 0; j < 3; j++) {
+                    this.edgePoints.push(scatterInside(x, y, 0.05));
+                  }
+                }
+
+                for (let i = 0; i < quantity * 3; i++) {
+                  const [x, y] = getRandom(this.points);
+                  this.centerPoints.push(scatterInside(x, y, 0.17));
+                }
+              }
+
+              render() {
+                const frame = renderFrame % this.generateFrame;
+                for (let i = 0; i < this.allPoints[frame].length; i++) {
+                  canvasRect(this.allPoints[frame][i]);
+                }
+              }
+            }
+
+            const heart = new Heart();
+
+            function render() {
+              ctx.clearRect(0, 0, 120, 120);
+              heart.render();
+              renderFrame++;
+            }
+
+            setInterval(() => {
+              render();
+            }, 160);
+        </script>
+    </body>
 </html>
